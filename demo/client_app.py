@@ -15,14 +15,18 @@ def run_demo():
     TARGET_HOST = 'target-server.com'
     TARGET_PORT = 80
 
-    print("[*] Initializing mini-TOR connection...")
+    print("[CLIENT] Initializing mini-TOR connection...")
+    print(f"[CLIENT] Proxy Node: {NODE_HOST}:{NODE_PORT}")
+    print(f"[CLIENT] Target: {TARGET_HOST}:{TARGET_PORT}")
 
     secure_socket = MiniTorSocket(NODE_HOST, NODE_PORT, CA_CERT)
+    print("[CLIENT] MiniTorSocket created")
 
     try:
         # Step 1: Connect to the target via the proxy node
+        print("[CLIENT] Connecting to target through proxy node...")
         secure_socket.connect(TARGET_HOST, TARGET_PORT)
-        print(f"[+] Connected to {TARGET_HOST} through {NODE_HOST}")
+        print(f"[CLIENT] Connected to {TARGET_HOST} through {NODE_HOST}")
 
         # Step 2: Prepare a simple HTTP request
         http_request = (
@@ -31,20 +35,41 @@ def run_demo():
             f"User-Agent: mini-TOR-Client\r\n"
             f"Connection: close\r\n\r\n"
         )
+        print(f"[CLIENT] HTTP Request: {http_request}")
 
         # Step 3: Send the data through the "safe" socket
+        print("[CLIENT] Sending HTTP request...")
         secure_socket.send(http_request.encode('utf-8'))
 
-        # Step 4: Receive response (This will be affected by random delays)
-        response = secure_socket.recv(4096)
-        print("\n[+] Response received from target server:")
-        print("-" * 30)
-        print(response.decode('utf-8', errors='ignore'))
-        print("-" * 30)
+        # Step 4: Receive response in chunks
+        print("[CLIENT] Waiting for response...")
+        full_response = b""
+        secure_socket.sock.settimeout(3.0)
+
+        try:
+            while True:
+                chunk = secure_socket.recv(4096)
+                if not chunk:
+                    print("[CLIENT] Connection closed by remote host.")
+                    break
+                full_response += chunk
+                print(f"[CLIENT] ... received {len(chunk)} bytes")
+
+        except Exception as e:
+            print(f"[CLIENT] Stopping reception: {e}")
+
+        if full_response:
+            print("\n[CLIENT] Final response received from target server:")
+            print("-" * 30)
+            print(full_response.decode('utf-8', errors='ignore'))
+            print("-" * 30)
+        else:
+            print("[CLIENT] No data received.")
 
     except Exception as e:
-        print(f"[-] Demo failed: {e}")
+        print(f"[CLIENT] Demo failed: {e}")
     finally:
+        print("[CLIENT] Closing connection")
         secure_socket.close()
 
 

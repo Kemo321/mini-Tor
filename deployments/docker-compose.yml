@@ -3,6 +3,8 @@ services:
   target-server:
     image: python:3.11-slim
     container_name: target-server.com
+    environment:
+      - PYTHONUNBUFFERED=1
     volumes:
       - ../demo/target_server.py:/app/target_server.py
     working_dir: /app
@@ -16,6 +18,8 @@ services:
       context: ..
       dockerfile: deployments/node.Dockerfile
     container_name: proxy-node.local
+    environment:
+      - PYTHONUNBUFFERED=1
     volumes:
       - ../certs:/app/certs
     networks:
@@ -27,6 +31,8 @@ services:
       context: ..
       dockerfile: deployments/demo.Dockerfile
     container_name: demo-client
+    environment:
+      - PYTHONUNBUFFERED=1
     volumes:
       - ../certs:/app/certs
     depends_on:

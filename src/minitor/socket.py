@@ -32,7 +32,7 @@ class MiniTorSocket:
 
         response = self.sock.recv(1024).decode('utf-8').strip()
         if response == "OK":
-            print(f"[+] Tunnel established to {target_host}:{target_port}")
+            print(f"[CLIENT] Tunnel established to {target_host}:{target_port}")
         elif response == "ERROR":
             self.close()
             raise ConnectionError(f"Node could not reach target {target_host}:{target_port}")
