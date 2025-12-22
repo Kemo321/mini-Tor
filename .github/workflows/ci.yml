@@ -21,7 +21,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install flake8
+          pip install flake8 pytest bandit  # Added bandit here
 
       - name: Run tests
         run: |
@@ -30,3 +30,8 @@ jobs:
       - name: Lint (flake8)
         run: |
           flake8 src --max-line-length=200
+
+      - name: Security Scan (Bandit)
+        run: |
+          # -r: recursive, -lll: high severity only, -v: verbose
+          bandit -r src -lll -v
