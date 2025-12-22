@@ -7,7 +7,7 @@ import os
 
 
 def main():
-    LISTEN_HOST = '0.0.0.0'  # Listen on all interfaces within the container
+    LISTEN_HOST = '0.0.0.0'  # nosec B104 Listen on all interfaces within the container
     LISTEN_PORT = 8080
 
     # Paths to SSL certificates
