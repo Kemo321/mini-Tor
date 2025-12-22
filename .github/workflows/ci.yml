@@ -25,7 +25,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest -q
+          python -m pytest tests/
 
       - name: Lint (flake8)
         run: |
