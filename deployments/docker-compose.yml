@@ -1,0 +1,39 @@
+services:
+  # The final destination
+  target-server:
+    image: python:3.11-slim
+    container_name: target-server.com
+    volumes:
+      - ../demo/target_server.py:/app/target_server.py
+    working_dir: /app
+    command: python3 target_server.py
+    networks:
+      - minitor-net
+
+  # The intermediate proxy node
+  proxy-node:
+    build:
+      context: ..
+      dockerfile: deployments/node.Dockerfile
+    container_name: proxy-node.local
+    volumes:
+      - ../certs:/app/certs
+    networks:
+      - minitor-net
+
+  # The user/client application
+  demo-client:
+    build:
+      context: ..
+      dockerfile: deployments/demo.Dockerfile
+    container_name: demo-client
+    volumes:
+      - ../certs:/app/certs
+    depends_on:
+      - proxy-node
+    networks:
+      - minitor-net
+
+networks:
+  minitor-net:
+    driver: bridge
