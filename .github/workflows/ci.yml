@@ -34,4 +34,4 @@ jobs:
       - name: Security Scan (Bandit)
         run: |
           # -r: recursive, -lll: high severity only, -v: verbose
-          bandit -r src -lll -v
+          bandit -r src -ll -v
