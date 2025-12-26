@@ -1,4 +1,8 @@
 import socket
+import ssl
+
+CERT_FILE = 'certs/server.crt'
+KEY_FILE = 'certs/server.key'
 
 
 def start_target_server(host='0.0.0.0', port=80):
@@ -6,6 +10,8 @@ def start_target_server(host='0.0.0.0', port=80):
     Simple target server that logs the client IP to demonstrate anonymity.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ctx.load_cert_chain(certfile=CERT_FILE, keyfile=KEY_FILE)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((host, port))
         s.listen()
@@ -21,8 +27,9 @@ def start_target_server(host='0.0.0.0', port=80):
                 print("[TARGET] ALERT: Incoming connection established!")
                 print(f"[TARGET] SOURCE IP (REMOTE_ADDR): {addr[0]}")
                 print(f"[TARGET] SOURCE PORT: {addr[1]}")
+                sec_conn = ctx.wrap_socket(conn, server_side=True)
 
-                data = conn.recv(2048)
+                data = sec_conn.recv(2048)
                 if data:
                     decoded_data = data.decode('utf-8', errors='ignore')
 
@@ -41,7 +48,7 @@ def start_target_server(host='0.0.0.0', port=80):
                         "\r\n"
                         f"{response_body}"
                     )
-                    conn.sendall(response.encode('utf-8'))
+                    sec_conn.sendall(response.encode('utf-8'))
                     print("[TARGET] Response sent successfully.")
 
                 print("[TARGET] Connection closed.")
