@@ -1,14 +1,12 @@
 services:
   # The final destination
   target-server:
-    image: python:3.11-slim
+    build:
+      context: ..
+      dockerfile: deployments/server.Dockerfile
     container_name: target-server.com
     environment:
       - PYTHONUNBUFFERED=1
-    volumes:
-      - ../demo/target_server.py:/app/target_server.py
-    working_dir: /app
-    command: python3 target_server.py
     networks:
       - minitor-net
 

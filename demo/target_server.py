@@ -1,8 +1,9 @@
 import socket
 import ssl
 
-CERT_FILE = 'certs/server.crt'
-KEY_FILE = 'certs/server.key'
+
+CERT_FILE = 'demo/certs/server.crt'
+KEY_FILE = 'demo/certs/server.key'
 
 
 def start_target_server(host='0.0.0.0', port=80):

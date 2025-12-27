@@ -24,7 +24,8 @@ class MiniTorSocket:
         # 1 & 2: TCP + TLS
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect(self.node_addr)
-        self.sock = self.context.wrap_socket(sock, server_hostname=self.node_addr[0])
+        # self.sock = self.context.wrap_socket(sock, server_hostname=self.node_addr[0])
+        self.sock = sock
 
         # 3: Send CONNECT request
         connect_request = ProtocolHandler.create_connect_request(target_host, target_port)
