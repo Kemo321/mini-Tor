@@ -4,7 +4,7 @@ This script shows that the server sees the Node's IP, not the Client's.
 """
 from src.minitor.socket import MiniTorSocket
 import ssl
-from time import sleep
+from src.minitor.double_socket import DoubleSocket
 
 
 def run_demo():
@@ -31,9 +31,8 @@ def run_demo():
         proxy_socket.connect(TARGET_HOST, TARGET_PORT)
         print(f"[CLIENT] Connected to {TARGET_HOST} through {NODE_HOST}")
 
-        s = proxy_socket.sock
         ctx = ssl.create_default_context(cafile=SERVER_CERT)
-        secure_socket = ctx.wrap_socket(s, server_hostname=TARGET_HOST)
+        sock = DoubleSocket(proxy_socket.sock, ctx, TARGET_HOST)
 
         print("socket wrapped")
 
@@ -48,22 +47,21 @@ def run_demo():
 
         # Step 3: Send the data through the "safe" socket
         print("[CLIENT] Sending HTTP request...")
-        secure_socket.send(http_request.encode('utf-8'))
+        sock.send(http_request.encode('utf-8'))
 
         # Step 4: Receive response in chunks
         print("[CLIENT] Waiting for response...")
         full_response = b""
-        secure_socket.settimeout(3.0)
+        sock.sock.settimeout(5)
 
         try:
             while True:
-                chunk = secure_socket.recv(4096)
+                chunk = sock.recv(4096)
                 if not chunk:
                     print("[CLIENT] Connection closed by remote host.")
                     break
                 full_response += chunk
                 print(f"[CLIENT] ... received {len(chunk)} bytes")
-
         except Exception as e:
             print(f"[CLIENT] Stopping reception: {e}")
 
@@ -75,8 +73,8 @@ def run_demo():
         else:
             print("[CLIENT] No data received.")
 
-    # except Exception as e:
-    #     print(f"[CLIENT] Demo failed: {e}")
+    except Exception as e:
+        print(f"[CLIENT] Demo failed: {e}")
     finally:
         print("[CLIENT] Closing connection")
         proxy_socket.close()

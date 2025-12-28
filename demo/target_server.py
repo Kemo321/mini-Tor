@@ -28,32 +28,30 @@ def start_target_server(host='0.0.0.0', port=80):
                 print("[TARGET] ALERT: Incoming connection established!")
                 print(f"[TARGET] SOURCE IP (REMOTE_ADDR): {addr[0]}")
                 print(f"[TARGET] SOURCE PORT: {addr[1]}")
-                sec_conn = ctx.wrap_socket(conn, server_side=True)
+                with ctx.wrap_socket(conn, server_side=True) as sec_conn:
+                    data = sec_conn.recv(2048)
+                    if data:
+                        decoded_data = data.decode('utf-8', errors='ignore')
 
-                data = sec_conn.recv(2048)
-                if data:
-                    decoded_data = data.decode('utf-8', errors='ignore')
+                        print("[TARGET] Received Data Stream:")
+                        print("-" * 40)
+                        print(decoded_data.strip())
+                        print("-" * 40)
 
-                    print("[TARGET] Received Data Stream:")
-                    print("-" * 40)
-                    print(decoded_data.strip())
-                    print("-" * 40)
-
-                    response_body = "Hello from the Target Server! Your identity is hidden."
-                    response = (
-                        "HTTP/1.1 200 OK\r\n"
-                        "Content-Type: text/plain\r\n"
-                        f"Content-Length: {len(response_body)}\r\n"
-                        "Server: mini-TOR-Mock-Server\r\n"
-                        "Connection: close\r\n"
-                        "\r\n"
-                        f"{response_body}"
-                    )
-                    sec_conn.sendall(response.encode('utf-8'))
-                    print("[TARGET] Response sent successfully.")
-
-                print("[TARGET] Connection closed.")
-                print("-" * 50)
+                        response_body = "Hello from the Target Server! Your identity is hidden."
+                        response = (
+                            "HTTP/1.1 200 OK\r\n"
+                            "Content-Type: text/plain\r\n"
+                            f"Content-Length: {len(response_body)}\r\n"
+                            "Server: mini-TOR-Mock-Server\r\n"
+                            "Connection: close\r\n"
+                            "\r\n"
+                            f"{response_body}"
+                        )
+                        sec_conn.sendall(response.encode('utf-8'))
+                        print("[TARGET] Response sent successfully.")
+            print("[TARGET] Connection closed.")
+            print("-" * 50)
 
 
 if __name__ == "__main__":
