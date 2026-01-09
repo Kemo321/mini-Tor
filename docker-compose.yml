@@ -8,6 +8,8 @@ services:
       - PYTHONUNBUFFERED=1
     networks:
       - minitor-net
+    volumes:
+      - ./certs:/app/certs
 
   # The intermediate proxy node
   proxy-node:
