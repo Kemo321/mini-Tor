@@ -54,16 +54,13 @@ def run_demo():
         full_response = b""
         sock.sock.settimeout(5)
 
-        try:
-            while True:
-                chunk = sock.recv(4096)
-                if not chunk:
-                    print("[CLIENT] Connection closed by remote host.")
-                    break
-                full_response += chunk
-                print(f"[CLIENT] ... received {len(chunk)} bytes")
-        except Exception as e:
-            print(f"[CLIENT] Stopping reception: {e}")
+        while True:
+            chunk = sock.recv(4096)
+            if not chunk:
+                print("[CLIENT] Connection closed by remote host.")
+                break
+            full_response += chunk
+            print(f"[CLIENT] ... received {len(chunk)} bytes")
 
         if full_response:
             print("\n[CLIENT] Final response received from target server:")
@@ -73,8 +70,6 @@ def run_demo():
         else:
             print("[CLIENT] No data received.")
 
-    except Exception as e:
-        print(f"[CLIENT] Demo failed: {e}")
     finally:
         print("[CLIENT] Closing connection")
         proxy_socket.close()
