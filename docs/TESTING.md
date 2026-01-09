@@ -25,8 +25,6 @@ Launch the Client, Node, and Target Server.
 
 
 ```bash
-
-cd deployments
 docker-compose up --build
 
 ```

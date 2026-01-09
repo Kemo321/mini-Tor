@@ -1,9 +1,12 @@
+import os
 import socket
 import ssl
+import os
+from pathlib import Path
 
 
-CERT_FILE = 'demo/certs/server.crt'
-KEY_FILE = 'demo/certs/server.key'
+CERT_FILE = Path(os.getcwd()) / 'certs/server.crt'
+KEY_FILE = Path(os.getcwd()) / 'certs/server.key'
 
 
 def start_target_server(host='0.0.0.0', port=80):
