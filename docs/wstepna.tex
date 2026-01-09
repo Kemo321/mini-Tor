@@ -1,0 +1,141 @@
+% !TEX program = latexmk (xelatex)
+\documentclass[12pt, a4paper]{article}
+
+\usepackage[polish]{babel}
+\usepackage{fontspec}
+\usepackage{lato}
+\renewcommand{\familydefault}{\sfdefault}
+\setlength{\parskip}{0.3em}
+\usepackage{fancyhdr}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+\usepackage{hyperref}
+
+\hypersetup{colorlinks=true}
+
+\begin{document}
+\pagestyle{myheadings}
+\markright{PSI Dokumentacja projektu wstępnego \hfill \today \hfill}
+
+
+\noindent{\large{Zespół 76}}\\
+
+\vspace{-0.5em}
+\noindent Wojciech Kukiełka 331394\\
+Tomasz Okoń 331414\\
+Adam Szkolaski 325237
+
+\section{Zadanie}
+Chcemy stworzyć system anonimizujący, będący uproszczeniem rozwiązania Tor.
+
+\subsection{Założenia}
+\begin{itemize}
+    \item Klient pozyskuje listę węzłów pośredniczących.
+    \item Klient łączy się z wybranym węzłem pośredniczącym, tunelując ruch
+        za pomocą wybranego rozwiązania (TLS? IPSec?).
+    \item Ograniczyć się do tunelowania ruchu TCP.
+    \item Węzeł pośredniczący łączy się z oryginalną lokalizacją docelową
+        (nie korzystając z kolejnych węzłów pośredniczących jak w oryginalnym
+        rozwiązaniu Tor).
+    \item Węzeł pośredniczący powinien wprowadzać pseudolosowe opóźnienia
+        i dokonywać zmiany rozmiaru/segmentacji przesyłanego strumienia ruchu.
+\end{itemize}
+
+\begin{figure}[h!]
+\centering
+\begin{tikzpicture}
+    \path (0,0)  node[circle, draw] {klient}
+          (5, 0) node[circle, draw] {węzeł}
+          (10, 0) node[circle, draw] {serwer};
+    \draw[arrows={- Latex[length=8pt]}] (1, 0) -- node[above] {TLS} (4, 0);
+    \draw[arrows={- Latex[length=8pt]}] (6, 0) -- node[above] {TLS} (9, 0);
+\end{tikzpicture}
+\label{fig:arch}
+\caption{Architektura}
+\end{figure}
+
+\subsection{Zakres realizacji}
+Pierwsze wymaganie wypełnimy, nadając węzłowi pośredniczącemu nazwę domenową,
+którą traktujemy jako znaną dla klientów -- tak jak znane klientom są adresy
+serwerów DNS. Ruch będzie tunelowany z użyciem TLS-u.
+
+Finalny produkt będzie mini biblioteką, która udostępni programiście gniazdo,
+które będzie miało już zestawione połączenie do serwera docelowego poprzez
+serwer pośredniczący.
+
+\subsubsection{Anonimowość}
+Dzięki temu rozwiązaniu zyskujemy anonimowość. Ani operatorzy telekomunikacyjni,
+ani administratorzy serwera, ani nikt podsłuchujący ruch na pośrednich routerach
+nie wiedzą kto, komu i co wysyła.
+
+Druga strona medalu jest taka, że w węźle pośredniczącym dane muszą zostać
+\textbf{odszyfrowane} i zaszyfrowane na nowo, więc gdy węzeł pośredniczący jest
+podsłuchiwany, szkody dla klienta są jeszcze większe.
+W Tor'ze są 3 węzły pośredniczące, co zmniejsza skutki tej podatności,
+lecz nie do zera. Zatem jest tu pewien kompromis.
+
+Urozmaiceniem jest wprowadzenie opóźnień i segmentacji, co utrudnia analizę
+statystyczną ruchu.
+
+\subsection{Przypadki użycia}
+
+\paragraph{UC1} Niefrasobliwy komentarz\\[0.5em]
+Aktor: użytkownik internetu\\[0.5em]
+Cel: zamieścić komentarz w internecie bez obaw o ustalenie własnej tożsamości
+     przez osobę trzecią.
+Przebieg:
+    \begin{itemize}
+        \item Użytkownik ustala, jakie zapytania HTTP wysyła się do serwera, aby
+              utworzyć komentarz.
+        \item Użytkownik pisze program z wykorzystaniem naszej biblioteki.
+        \item Przez „bezpieczne” gniazdo wysyła odpowiednie zapytania.
+    \end{itemize}
+
+\section{Wizja rozwiązania}
+Węzeł i biblioteka zostaną napisane w pythonie. Wykorzystamy bibliotekę
+\href{https://docs.python.org/3/library/ssl.html}{ssl}.
+
+\subsection{Architektura}
+Jak wspomniano, produktem będzie biblioteka oraz serwer-węzeł,
+ale w celu demonstracji powstaną jeszcze klient i serwer
+docelowy (zob. \ref{fig:arch}). Każdy węzeł w~tym systemie będzie kontenerem.
+
+\subsection{Sytuacje błędne}
+Jeśli chodzi o samą komunikację klienta z serwerem, jest to sprawa każdego z nich
+z osobna, jak obsługują błędy. W demonstracji zastosujemy najprostszy schemat, czyli
+jej zatrzymanie po dowolnym błędzie (timeout, nieoczekiwane zamknięcie gniazda
+lub niespodziewana wiadomość w protokole).
+
+Natomiast węzeł pośredniczący powinien sam o siebie zadbać. W przypadku timeoutu
+odczytu od klienta albo wysyłania do serwera będzie przerywał oba połączenia
+i wracał do nasłuchiwania.
+
+Błąd może wystąpić także w trakcie zestawiania połączenia, np. klient może zażądać
+połączenia z nieosiągalnym serwerem. Wtedy należy powiadomić klienta,
+zakończyć połączenie i wrócić do nasłuchiwania.
+
+\subsection{Podział prac}
+Pracę można podzielić na zadania, które mogą samodzielnie robić różni członkowie
+zespołu. W repozytorium spisaliśmy zadania, członkowie dobrowolnie się ich podejmują.
+Nikt nie jest bardziej predysponowany do jednych zadań niż do innych, więc
+na razie nie przesądzamy, co kto będzie robił.
+
+\subsubsection{Poszczególne zadania (zarys)}
+\begin{enumerate}
+    \item Zestawienie dowolnego połączenia TCP między kontenerami.
+    \item Tunelowanie ze sztywno ustalonym adresem serwera.
+    \item Przekazanie węzłowi adresu serwera.
+    \item Opakowanie części logiki klienta w bibliotekę.
+    \item Wprowadzenie opóźnień i zmiany segmentacji.
+\end{enumerate}
+
+\section{Scenariusz demonstracji}
+Demonstracja będzie polegała na zestawieniu połączenia takiego jak
+na rys.~\ref{fig:arch}. Klient wyśle zapytanie, a serwer odeśle mu pewne nieistotne
+dane. Kluczowe będzie pokazanie tego, że serwer otrzymuje połączenie nie od klienta
+tylko od węzła.
+
+Pokażemy też, że prędkość przesyłu ulega zmianom, co będzie świadectwem
+tego, że opóźnienia są losowe.
+
+\end{document}
