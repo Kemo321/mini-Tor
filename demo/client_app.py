@@ -5,14 +5,15 @@ This script shows that the server sees the Node's IP, not the Client's.
 from src.minitor.socket import MiniTorSocket
 import ssl
 from src.minitor.double_socket import DoubleSocket
-
+from pathlib import Path
+import os
 
 def run_demo():
     # 1. Configuration for the Proxy Node
     NODE_HOST = 'proxy-node.local'
     NODE_PORT = 8080
-    NODE_CERT = 'certs/node.crt'
-    SERVER_CERT = 'demo/certs/server.crt'
+    NODE_CERT = Path(os.getcwd()) / 'certs/node.crt'
+    SERVER_CERT = Path(os.getcwd()) / 'certs/server.crt'
 
     # 2. Target destination (The server we want to reach anonymously)
     TARGET_HOST = 'target-server.com'
@@ -31,7 +32,10 @@ def run_demo():
         proxy_socket.connect(TARGET_HOST, TARGET_PORT)
         print(f"[CLIENT] Connected to {TARGET_HOST} through {NODE_HOST}")
 
-        ctx = ssl.create_default_context(cafile=SERVER_CERT)
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
         sock = DoubleSocket(proxy_socket.sock, ctx, TARGET_HOST)
 
         print("socket wrapped")
