@@ -9,3 +9,5 @@ openssl req -new -x509 -days 365 -nodes \
     -out certs/node.crt \
     -keyout certs/node.key \
     -subj "/CN=proxy-node.local"
+
+copy certs/node.crt demo/certs/
