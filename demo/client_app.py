@@ -9,13 +9,13 @@ from src.minitor.double_socket import DoubleSocket
 
 def run_demo():
     # 1. Configuration for the Proxy Node
-    NODE_HOST = 'proxy-node.local'
+    NODE_HOST = 'z76-proxy-node.local'
     NODE_PORT = 8080
     NODE_CERT = 'demo/certs/node.crt'
     SERVER_CERT = 'demo/certs/server.crt'
 
     # 2. Target destination (The server we want to reach anonymously)
-    TARGET_HOST = 'target-server.com'
+    TARGET_HOST = 'z76-target-server.com'
     TARGET_PORT = 80
 
     print("[CLIENT] Initializing mini-TOR connection...")

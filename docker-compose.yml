@@ -1,9 +1,10 @@
 services:
   # The final destination
   target-server:
+    container_name: z76-target-server.com
+    image: z76-target-server
     build:
       dockerfile: deployments/server.Dockerfile
-    container_name: target-server.com
     environment:
       - PYTHONUNBUFFERED=1
     networks:
@@ -11,9 +12,10 @@ services:
 
   # The intermediate proxy node
   proxy-node:
+    container_name: z76-proxy-node.local
+    image: z76-proxy-node
     build:
       dockerfile: deployments/node.Dockerfile
-    container_name: proxy-node.local
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
@@ -23,9 +25,10 @@ services:
 
   # The user/client application
   demo-client:
+    container_name: z76-demo-client
+    image: z76-demo-client
     build:
       dockerfile: deployments/demo.Dockerfile
-    container_name: demo-client
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
@@ -37,4 +40,5 @@ services:
 
 networks:
   minitor-net:
-    driver: bridge
+    name: z76_network
+    external: true
