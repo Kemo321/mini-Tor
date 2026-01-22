@@ -1,0 +1,285 @@
+% !TEX program = latexmk (xelatex)
+\documentclass[12pt, a4paper]{article}
+
+\usepackage[polish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lato}
+\renewcommand{\familydefault}{\sfdefault}
+\setlength{\parskip}{0.3em}
+\usepackage{fancyhdr}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{float}
+
+% Konfiguracja wyświetlania kodu i logów
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10},
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!50!black},
+    stringstyle=\color{red},
+    showstringspaces=false,
+    extendedchars=true,
+    literate={ą}{{\k{a}}}1 {ć}{{\'c}}1 {ę}{{\k{e}}}1 {ł}{{\l{}}}1 {ń}{{\'n}}1 {ó}{{\'o}}1 {ś}{{\'s}}1 {ź}{{\'z}}1 {ż}{{\.z}}1
+             {Ą}{{\k{A}}}1 {Ć}{{\'C}}1 {Ę}{{\k{E}}}1 {Ł}{{\L{}}}1 {Ń}{{\'N}}1 {Ó}{{\'O}}1 {Ś}{{\'S}}1 {Ź}{{\'Z}}1 {Ż}{{\.Z}}1
+}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue
+}
+
+\begin{document}
+\pagestyle{myheadings}
+\markright{PSI Dokumentacja końcowa projektu \hfill \today \hfill}
+
+\noindent{\large{Zespół 76}}\\
+
+\vspace{-0.5em}
+\noindent Wojciech Kukiełka 331394\\
+Tomasz Okoń 331414\\
+Adam Szkolaski 325237
+
+\hrulefill
+
+\begin{center}
+    \LARGE \textbf{System anonimizujący ,,Mini-TOR''}
+\end{center}
+
+\tableofcontents
+\newpage
+
+\section{Opis projektu i implementacji}
+
+Celem projektu było stworzenie systemu anonimizującego ruch sieciowy TCP, inspirowanego rozwiązaniem Tor, lecz w uproszczonej architekturze opartej na pojedynczym węźle pośredniczącym (Proxy Node). System ma za zadanie ukryć tożsamość klienta przed serwerem docelowym oraz utrudnić analizę statystyczną ruchu poprzez mechanizmy opóźnień i segmentacji.
+
+\subsection{Architektura systemu}
+Komunikacja odbywa się w następującej architekturze:
+\begin{enumerate}
+    \item \textbf{Klient (Client):} Aplikacja korzystająca z naszej biblioteki pythonowej, która zestawia bezpieczny tunel TLS do węzła pośredniczącego.
+    \item \textbf{Węzeł pośredniczący (Node):} Serwer przyjmujący połączenia od klientów, deszyfrujący pierwszą warstwę, a następnie nawiązujący połączenie z~serwerem docelowym. Węzeł odpowiada za anonimizację (podmianę adresu źródłowego) oraz kształtowanie ruchu (Traffic Shaping).
+    \item \textbf{Serwer docelowy (Target Server):} Odbiorca ruchu, który widzi jedynie adres IP węzła pośredniczącego.
+\end{enumerate}
+
+\begin{figure}[h!]
+\centering
+\begin{tikzpicture}
+    \path (0,0)  node[circle, draw, align=center] {Klient\\(Biblioteka)}
+          (5, 0) node[circle, draw, align=center] {Węzeł\\(Node)}
+          (10, 0) node[circle, draw, align=center] {Serwer\\Docelowy};
+    \draw[arrows={- Latex[length=8pt]}] (1.2, 0) -- node[above] {Double TLS} node[below] {\scriptsize (CONNECT)} (3.8, 0);
+    \draw[arrows={- Latex[length=8pt]}] (6.2, 0) -- node[above] {TLS} node[below] {\scriptsize (Traffic Shaping)} (8.6, 0);
+\end{tikzpicture}
+\caption{Architektura rozwiązania}
+\label{fig:arch}
+\end{figure}
+
+\subsection{Zastosowane technologie}
+Implementacja została wykonana w języku \textbf{Python 3.11}, z wykorzystaniem biblioteki standardowej \texttt{ssl} do obsługi szyfrowania oraz modułu \texttt{socket} do obsługi gniazd. Całość środowiska jest orkiestrowana przy pomocy \textbf{Docker Compose}. Do generowania certyfikatów X.509 wykorzystano pakiet \textbf{OpenSSL}.
+
+\section{Scenariusze komunikacji}
+
+\subsection{SC1: Nawiązanie połączenia i transfer danych}
+\textbf{Aktorzy:} Klient, Węzeł, Serwer Docelowy.
+\begin{enumerate}
+    \item Klient inicjuje połączenie TLS do Węzła na ustalonym porcie.
+    \item Klient wysyła wewnątrz tunelu TLS komunikat sterujący \texttt{CONNECT} wskazujący adres
+          i port serwera docelowego.
+    \item Węzeł parsuje komunikat i nawiązuje \textbf{zwykłe} połączenie TCP z serwerem docelowym.
+    \item Po sukcesie, Węzeł przechodzi w tryb przekazywania danych (transparent proxy) z włączonym mechanizmem losowych opóźnień.
+    \item Poprzez zestawiony tunel, klient inicjuje sesję TLS z serwerem a następnie z nim rozmawia.
+\end{enumerate}
+
+\subsection{SC2: Obsługa błędów połączenia}
+\textbf{Sytuacja:} Klient żąda połączenia z nieosiągalnym serwerem.
+\begin{enumerate}
+    \item Klient wysyła żądanie \texttt{CONNECT} do nieistniejącego hosta.
+    \item Węzeł podejmuje próbę połączenia, która kończy się niepowodzeniem (timeout lub connection refused).
+    \item Węzeł wysyła komunikat ERROR.
+    \item Biblioteka po stronie klienta zgłasza wyjątek \texttt{ConnectionError}.
+\end{enumerate}
+
+Co ciekawe, nie udało nam się zaobserwować tego scenariusza. Nawet gdy kontener serwera
+nie był włączony, węzłowi udawało się nawiązać połączenie z nieistniejącą usługą. Błąd występował
+dopiero po tym jak klient zaczął TLS handshake z serwerem. Tak działa docker -- gniazda akceptują
+połączenia, nawet jak nie odbiera ich żaden kontener.
+
+\section{Definicje komunikatów}
+
+Wymiana danych sterujących odbywa się wewnątrz zestawionego tunelu TLS. Protokół jest tekstowy i uproszczony względem HTTP/SOCKS.
+
+\subsection{Żądanie połączenia (Od Klienta do Węzła)}
+Pierwszy komunikat wysyłany przez klienta po zestawieniu tunelu TLS.
+
+\begin{lstlisting}[language=bash, caption=Format komunikatu CONNECT]
+CONNECT <target_host>:<target_port>\n
+\end{lstlisting}
+
+\noindent \textbf{Pola:}
+\begin{itemize}
+    \item \texttt{CONNECT} – słowo kluczowe.
+    \item \texttt{target\_host} – nazwa domenowa lub adres IP serwera docelowego.
+    \item \texttt{target\_port} – port docelowy (np. 80).
+    \item \texttt{\textbackslash n} – znak nowej linii kończący nagłówek.
+\end{itemize}
+
+\subsection{Strumień danych (Dwukierunkowy)}
+Po poprawnym przetworzeniu nagłówka \texttt{CONNECT} wszelkie kolejne bajty są traktowane jako `payload` (dane użytkownika).
+\begin{itemize}
+    \item \textbf{Węzeł $\rightarrow$ Serwer:} Dane są wysyłane po segmentacji i wprowadzeniu losowych opóźnień (algorytm \textit{shaper}).
+    \item \textbf{Serwer $\rightarrow$ Węzeł $\rightarrow$ Klient:} Odpowiedzi wracają tą samą drogą.
+\end{itemize}
+
+\section{Opisy zachowania podmiotów komunikacji}
+
+\subsection{Klient (Biblioteka)}
+Biblioteka udostępnia interfejs gniazda. Jej zadaniem jest ukrycie przed programistą faktu, że połączenie nie jest bezpośrednie. Odpowiada za wczytanie certyfikatu CA (do weryfikacji węzła), zestawienie tunelu SSL/TLS oraz wysłanie nagłówka protokołu.
+
+\subsection{Węzeł Pośredniczący (Shaper & Proxy)}
+Serce systemu. Działa w pętli zdarzeń, obsługując wiele połączeń jednocześnie.
+
+\begin{minipage}{1.0\linewidth}
+    Kluczowa logika \textit{Traffic Shaping}:
+    \begin{itemize}
+        \item Buforuje dane przychodzące od klienta.
+        \item Dzieli bufor na losowe fragmenty (chunks).
+        \item Wstrzymuje wysyłanie każdego fragmentu o losowy czas $t \in [0.05s, 0.2s]$.
+        \item Uniemożliwia korelację czasową pakietów przychodzących i wychodzących.
+    \end{itemize}
+\end{minipage}
+
+Aby te manipulacje powyżej funkcji \texttt{send} przekładały się na ruch sieciowy, wyłączyliśmy
+algorytm Nagle'a.
+
+\subsection{Serwer Docelowy}
+Pasywny podmiot, który loguje przychodzące połączenia. W kontekście projektu służy do weryfikacji, czy adres źródłowy faktycznie należy do Węzła, a nie do Klienta.
+
+\section{Wyniki testów}
+
+Testy przeprowadzono w środowisku skonteneryzowanym (Docker Compose). Poniżej przedstawiono dowody poprawnego działania systemu.
+
+\subsection{Test funkcjonalny: Przesył danych}
+Przykład poprawnego wykonania demonstracji protokołu.
+
+\begin{lstlisting}[caption=Logi z klienta demonstracyjnego]
+[CLIENT] Initializing mini-TOR connection...
+[CLIENT] Proxy Node: proxy-node.local:8080
+[CLIENT] Target: target-server.com:80
+[CLIENT] MiniTorSocket created
+[CLIENT] Connecting to target through proxy node...
+[CLIENT] Tunnel established to target-server.com:80
+[CLIENT] Connected to target-server.com through proxy-node.local
+socket wrapped
+[CLIENT] HTTP Request: GET / HTTP/1.1
+Host: target-server.com
+User-Agent: mini-TOR-Client
+Connection: close
+
+
+[CLIENT] Sending HTTP request...
+[CLIENT] Waiting for response...
+[CLIENT] ... received 168 bytes
+[CLIENT] Connection closed by remote host.
+
+[CLIENT] Final response received from target server:
+------------------------------
+HTTP/1.1 200 OK
+Content-Type: text/plain
+Content-Length: 54
+Server: mini-TOR-Mock-Server
+Connection: close
+
+Hello from the Target Server! Your identity is hidden.
+------------------------------
+[CLIENT] Closing connection
+\end{lstlisting}
+
+\subsection{Test funkcjonalny: Anonimowość}
+Weryfikacja, czy serwer docelowy widzi adres IP węzła (\texttt{proxy-node}), a nie klienta.
+
+\begin{lstlisting}[caption=Logi z proxy-nodea]
+proxy-node.local   | [NODE] [+] New connection from ('172.20.0.4', 41308)
+proxy-node.local   | [NODE] [+] Handler thread started for ('172.20.0.4', 41308)
+\end{lstlisting}
+
+Widać, że IP klienta to 172.20.0.4
+
+\begin{lstlisting}[caption=Logi serwera docelowego]
+target-server.com  | [TARGET] ALERT: Incoming connection established!
+target-server.com  | [TARGET] SOURCE IP (REMOTE_ADDR): 172.20.0.3
+target-server.com  | [TARGET] SOURCE PORT: 41920
+target-server.com  | [TARGET] Received Data Stream:
+target-server.com  | ----------------------------------------
+target-server.com  | GET / HTTP/1.1
+target-server.com  | Host: target-server.com
+target-server.com  | User-Agent: mini-TOR-Client
+target-server.com  | Connection: close
+target-server.com  | ----------------------------------------
+target-server.com  | [TARGET] Response sent successfully.
+target-server.com  | [TARGET] Connection closed.
+target-server.com  | --------------------------------------------------
+\end{lstlisting}
+
+Serwer docelowy widzi adres 172.20.0.3 - adres proxy-nodea
+
+\subsection{Test funkcjonalny: Traffic Shaping}
+Demonstracja segmentacji danych. Klient otrzymuje odpowiedź w "paczkach" z~widocznymi opóźnieniami.
+
+Zmodyfikowaliśmy metodę recv klasy DoubleSocket w celu podejrzenia czasu opóźnień
+
+\begin{lstlisting}[caption=Modyfikacja metody]
+    def recv(self, n):
+        while True:
+            try:
+                time_start = time.time()
+                encrypted = self.sock.recv(n)
+                delay = time.time() - time_start
+                print(f"Delay for recv: {delay:.4f} seconds")
+                if not encrypted:
+                    return encrypted
+                self._incoming.write(encrypted)
+                return self._obj.read()
+            except ssl.SSLWantReadError:
+                pass
+
+\end{lstlisting}
+
+\begin{lstlisting}[caption=Logi klienta demonstracyjnego (Segmentacja)]
+[CLIENT] Sending HTTP request...
+[CLIENT] Waiting for response...
+Delay for recv: 0.1839 seconds
+Delay for recv: 0.0810 seconds
+Delay for recv: 0.0000 seconds
+Delay for recv: 0.0000 seconds
+Delay for recv: 0.1452 seconds
+Delay for recv: 0.1749 seconds
+Delay for recv: 0.0000 seconds
+Delay for recv: 0.0729 seconds
+Delay for recv: 0.0000 seconds
+Delay for recv: 0.0000 seconds
+Delay for recv: 0.0000 seconds
+[CLIENT] ... received 335 bytes
+Delay for recv: 0.0018 seconds
+[CLIENT] Connection closed by remote host.
+\end{lstlisting}
+
+Widać, że czas opóźnienia jest pseudolosowy
+
+\section{Podsumowanie}
+Zrealizowany projekt spełnia założenia dokumentacji wstępnej.
+\begin{itemize}
+    \item \textbf{Anonimowość:} Została potwierdzona testami; serwer docelowy nie ma wiedzy o oryginalnym adresie IP klienta.
+    \item \textbf{Bezpieczeństwo:} Komunikacja na odcinku Klient-Węzeł jest zabezpieczona protokołem TLS, co chroni przed podsłuchem w sieci lokalnej klienta.
+    \item \textbf{Analiza ruchu:} Węzeł skutecznie wprowadza losowe opóźnienia i fragmentację, co utrudnia analizę czasową przepływu danych.
+\end{itemize}
+
+Rozwiązanie stanowi funkcjonalny prototyp biblioteki anonimizującej ("Mini-TOR").
+
+\end{document}
